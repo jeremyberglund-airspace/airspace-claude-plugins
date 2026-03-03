@@ -1,0 +1,8 @@
+{
+  "name": "airspace-tools",
+  "description": "Airspace-specific developer tools: JIRA-aware code review and more",
+  "version": "1.0.0",
+  "author": {
+    "name": "Jeremy Berglund"
+  }
+}
