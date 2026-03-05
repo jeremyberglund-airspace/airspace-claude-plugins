@@ -20,6 +20,12 @@ Provide a JIRA-aware code review for a pull request or local branch changes.
 - All tools are functional and will work without error. Do not test tools or make exploratory calls. Make sure this is clear to every subagent that is launched.
 - Only call a tool if it is required to complete the task. Every tool call should have a clear purpose.
 
+**Agent execution (CRITICAL — follow exactly):**
+- To run agents in parallel, issue multiple `Agent` tool calls in a **single message** using foreground mode (the default). This runs them concurrently and returns all results together. Do NOT use `run_in_background: true`.
+- Do NOT use `TaskOutput` to poll for agent results. The `TaskOutput` tool only works with background Bash commands, not with Agent tool invocations. Using it on agent IDs will error.
+- Do NOT use `sleep` + `tail`/`cat` to poll agent output files. This is fragile and triggers unnecessary approval prompts.
+- If an agent's results are needed before the next step, run it in the foreground (default). Only use `run_in_background: true` if you genuinely have independent non-agent work to do while waiting.
+
 **CRITICAL CONSTRAINTS (NEVER violate):**
 - To fetch JIRA ticket data, you MUST use `mcp__atlassian__getAccessibleAtlassianResources` then `mcp__atlassian__getJiraIssue`. Do NOT use WebFetch, Fetch, or any HTTP tool to access JIRA. The Atlassian MCP tools handle authentication automatically.
 
