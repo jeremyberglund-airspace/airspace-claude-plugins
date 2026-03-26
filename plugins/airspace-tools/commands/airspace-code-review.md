@@ -89,9 +89,9 @@ Note: Still review Claude generated PR's.
 
    Store the JIRA context (or user-provided description) for use in later steps.
 
-5. Launch a haiku agent to return a list of file paths (not their contents) for all relevant CLAUDE.md files including:
-   - The root CLAUDE.md file, if it exists
-   - Any CLAUDE.md files in directories containing files modified by the pull request
+5. Launch a haiku agent to return a list of file paths (not their contents) for all relevant CLAUDE.md and AGENTS.md files including:
+   - The root CLAUDE.md and/or AGENTS.md files, if they exist
+   - Any CLAUDE.md or AGENTS.md files in directories containing files modified by the pull request
 
 6. Launch a sonnet agent to view the changes and return a summary. If a PR exists, use the PR diff. If no PR, use `git diff main...HEAD`.
 
@@ -103,14 +103,19 @@ Note: Still review Claude generated PR's.
    - Any user-provided context from the arguments
    - If this is a re-review: the list of previous issues from step 2, so agents can check whether they are still present
 
-   Agents 1 + 2: CLAUDE.md compliance sonnet agents
-   Audit changes for CLAUDE.md compliance in parallel. Note: When evaluating CLAUDE.md compliance for a file, you should only consider CLAUDE.md files that share a file path with the file or parents.
+   Agents 1 + 2: CLAUDE.md / AGENTS.md compliance sonnet agents
+   Audit changes for CLAUDE.md and AGENTS.md compliance in parallel. Note: When evaluating compliance for a file, you should only consider CLAUDE.md and AGENTS.md files that share a file path with the file or parents.
 
    Agent 3: Opus bug agent (parallel subagent with agents 4 and 5)
-   Scan for obvious bugs. Focus only on the diff itself without reading extra context. Flag only significant bugs; ignore nitpicks and likely false positives. Do not flag issues that you cannot validate without looking at context outside of the git diff.
+   Scan for obvious bugs using the diff AND surrounding source context. Read the full source files for any files with non-trivial logic changes (not just attribute additions or config changes) to understand the context around the diff. Flag only significant bugs; ignore nitpicks and likely false positives.
 
-   Agent 4: Opus bug agent (parallel subagent with agents 3 and 5)
-   Look for problems that exist in the introduced code. This could be security issues, incorrect logic, etc. Only look for issues that fall within the changed code.
+   Agent 4: Opus deep review agent (parallel subagent with agents 3 and 5)
+   Perform a deep review of the introduced code by reading full source files, not just the diff. Specifically:
+   - Read the complete source files that were modified to understand surrounding context
+   - Grep for related patterns across the codebase to find files that may need corresponding changes but were NOT modified (e.g., sibling fields, parallel code paths, fixtures, serializers, import/export services)
+   - Check if any data files (fixtures, seeds, configs) reference the same domain concepts and need updating
+   - Look for security issues, incorrect logic, or missing updates in related code
+   This agent should catch issues that a diff-only review would miss — the "what's missing" class of bugs.
 
    Agent 5: Opus requirements fulfillment agent (parallel subagent with agents 3 and 4)
    Compare the PR changes against the JIRA ticket requirements and acceptance criteria from step 4. Flag:
@@ -122,7 +127,7 @@ Note: Still review Claude generated PR's.
    **CRITICAL: We only want HIGH SIGNAL issues.** Flag issues where:
    - The code will fail to compile or parse (syntax errors, type errors, missing imports, unresolved references)
    - The code will definitely produce wrong results regardless of inputs (clear logic errors)
-   - Clear, unambiguous CLAUDE.md violations where you can quote the exact rule being broken
+   - Clear, unambiguous CLAUDE.md or AGENTS.md violations where you can quote the exact rule being broken
    - Clear gaps between JIRA acceptance criteria and the implementation (Agent 5 only)
 
    Do NOT flag:
@@ -132,7 +137,7 @@ Note: Still review Claude generated PR's.
 
    If you are not certain an issue is real, do not flag it. False positives erode trust and waste reviewer time.
 
-8. For each issue found in the previous step by agents 3, 4, and 5, launch parallel subagents to validate the issue. These subagents should get the PR title and description, the JIRA context, and a description of the issue. The agent's job is to review the issue to validate that the stated issue is truly an issue with high confidence. Use Opus subagents for bugs, logic issues, and requirements gaps, and sonnet agents for CLAUDE.md violations.
+8. For each issue found in the previous step by agents 3, 4, and 5, launch parallel subagents to validate the issue. These subagents should get the PR title and description, the JIRA context, and a description of the issue. The agent's job is to review the issue to validate that the stated issue is truly an issue with high confidence. Use Opus subagents for bugs, logic issues, and requirements gaps, and sonnet agents for CLAUDE.md/AGENTS.md violations.
 
 9. Filter out any issues that were not validated in step 8. This step will give us our list of high signal issues for our review.
 
@@ -149,7 +154,7 @@ Note: Still review Claude generated PR's.
     Output a summary of the review findings to the terminal:
     - If this is a re-review, start with a status summary: `X of Y previous issues fixed. Z new issues found.`
     - If issues remain or are new, list each with a brief description, the file/line, and the reason it was flagged.
-    - If no issues, state: "No issues found. Checked for bugs, CLAUDE.md compliance, and JIRA requirements fulfillment."
+    - If no issues, state: "No issues found. Checked for bugs, CLAUDE.md/AGENTS.md compliance, and JIRA requirements fulfillment."
 
     **If `--markdown` was provided:**
     Write a structured review to a `.md` file in the repo root. Use `review-PR-<number>.md` if a PR exists, or `review-<branch name>.md` otherwise. If a previous review file exists, **overwrite it** with the updated review. Format:
@@ -174,7 +179,7 @@ Note: Still review Claude generated PR's.
 
     ### Issue 1: <title>
     - **File:** `<path>:<line>`
-    - **Category:** <Bug | CLAUDE.md Violation | Requirements Gap>
+    - **Category:** <Bug | CLAUDE.md/AGENTS.md Violation | Requirements Gap>
     - **Status:** <New | Still Open>
     - **Description:** <description>
     - **Suggestion:** <fix suggestion if applicable>
@@ -193,7 +198,7 @@ Note: Still review Claude generated PR's.
 
     ## Code review
 
-    No issues found. Checked for bugs, CLAUDE.md compliance, and JIRA requirements fulfillment.
+    No issues found. Checked for bugs, CLAUDE.md/AGENTS.md compliance, and JIRA requirements fulfillment.
 
     **JIRA:** <ticket ID> — <ticket summary>
 
@@ -218,14 +223,14 @@ Use this list when evaluating issues in Steps 7 and 8 (these are false positives
 - Something that appears to be a bug but is actually correct
 - Pedantic nitpicks that a senior engineer would not flag
 - Issues that a linter will catch (do not run the linter to verify)
-- General code quality concerns (e.g., lack of test coverage, general security issues) unless explicitly required in CLAUDE.md
-- Issues mentioned in CLAUDE.md but explicitly silenced in the code (e.g., via a lint ignore comment)
+- General code quality concerns (e.g., lack of test coverage, general security issues) unless explicitly required in CLAUDE.md or AGENTS.md
+- Issues mentioned in CLAUDE.md or AGENTS.md but explicitly silenced in the code (e.g., via a lint ignore comment)
 
 Notes:
 
 - Use gh CLI to interact with GitHub (e.g., fetch pull requests, create comments). Do not use web fetch.
 - Create a todo list before starting.
-- You must cite and link each issue in inline comments (e.g., if referring to a CLAUDE.md, include a link to it).
+- You must cite and link each issue in inline comments (e.g., if referring to a CLAUDE.md or AGENTS.md, include a link to it).
 - If no issues are found and `--comment` mode was specified, post a comment with the format shown in step 10.
 - When linking to code in inline comments, follow the following format precisely, otherwise the Markdown preview won't render correctly: https://github.com/anthropics/claude-code/blob/c21d3c10bc8e898b7ac1a2d745bdc9bc4e423afe/package.json#L10-L15
   - Requires full git sha
