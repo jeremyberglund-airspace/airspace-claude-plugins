@@ -78,10 +78,11 @@ Restart Claude Code. The command `/airspace-tools:airspace-code-review` should a
 
 After changes are pushed to this repo:
 
-1. Open Claude Code
-2. Run `/plugin` and select "Update Now" for airspace-plugins
-
-Or start a new session — plugins check for updates on session start.
+1. Sync your local marketplace clone (required due to a [Claude Code bug](https://github.com/anthropics/claude-code/issues/10182) — it doesn't git pull before checking for updates):
+   ```bash
+   cd ~/.claude/plugins/marketplaces/airspace-plugins && git pull origin main
+   ```
+2. Open Claude Code and run `/plugin`, then select "Update Now" for airspace-plugins
 
 ## Development
 
